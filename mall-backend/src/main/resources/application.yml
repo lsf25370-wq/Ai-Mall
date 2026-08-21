@@ -1,0 +1,55 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: mall-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 123456
+      database: 0
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# 自定义配置
+mall:
+  jwt:
+    # 生产环境请替换为随机长密钥
+    secret: mall-project-jwt-secret-key-please-change-me-2026-08
+    # 过期时间（小时）
+    expire-hours: 72
+  ai:
+    # AI 客服服务地址
+    service-url: http://localhost:8001
+  rate-limit:
+    # 接口限流：每窗口内每个用户/IP 最大请求数
+    max: 30
+    window-seconds: 60
+  order:
+    # 待付款订单超时自动关闭（分钟）
+    pay-timeout-minutes: 15
+    # 发货后超过 N 天未确认收货，自动确认
+    auto-confirm-days: 7
+
+logging:
+  level:
+    com.mall: debug

@@ -1,0 +1,43 @@
+# =====================================================
+# CI：push 到 main 自动构建后端 JAR + 前端产物，并做编译校验
+# 服务器部署可在此基础上补充 SSH 上传 + docker compose 重启
+# =====================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Build with Maven
+        run: cd mall-backend && mvn -B clean package -DskipTests
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mall-backend
+          path: mall-backend/target/mall-backend-1.0.0.jar
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        web: [mall-shop-web, mall-admin-web, mall-seller-web]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install & Build
+        run: cd ${{ matrix.web }} && npm ci && npm run build

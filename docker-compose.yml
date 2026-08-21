@@ -1,0 +1,109 @@
+# =====================================================
+# mall 商城一键编排：MySQL + Redis + Java 后端 + AI 服务 + 三端前端
+# 使用：docker compose up -d --build
+# 访问：买家商城 http://localhost:5173
+#       平台后台 http://localhost:5175
+#       卖家中心 http://localhost:5176
+# =====================================================
+name: mall
+
+services:
+  # ---------------- 基础设施 ----------------
+  mysql:
+    image: mysql:8.0
+    container_name: mall-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: mall
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 首次启动自动初始化表结构与示例数据
+      - ./mall-backend/src/main/resources/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # 迁移脚本（已存在的库需要手工执行，这里避免重复建表冲突，故不挂载）
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: mall-redis
+    command: redis-server --requirepass 123456 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "123456", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---------------- 后端服务 ----------------
+  mall-backend:
+    build: ./mall-backend
+    container_name: mall-backend
+    environment:
+      # 生产 profile 由 Dockerfile 默认启用，这里只需覆盖连接参数
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: "123456"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: "123456"
+      AI_SERVICE_URL: http://ai-service:8001
+      JWT_SECRET: "mall-prod-jwt-secret-2026-change-me"
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai-service:
+    build: ./ai-service
+    container_name: ai-service
+    env_file:
+      - ./ai-service/.env
+    environment:
+      MALL_INTERNAL_URL: http://mall-backend:8080
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mall-backend
+
+  # ---------------- 三端前端（Nginx 托管 + 反代） ----------------
+  mall-shop-web:
+    build: ./mall-shop-web
+    container_name: mall-shop-web
+    ports:
+      - "5173:80"
+    depends_on:
+      - mall-backend
+
+  mall-admin-web:
+    build: ./mall-admin-web
+    container_name: mall-admin-web
+    ports:
+      - "5175:80"
+    depends_on:
+      - mall-backend
+
+  mall-seller-web:
+    build: ./mall-seller-web
+    container_name: mall-seller-web
+    ports:
+      - "5176:80"
+    depends_on:
+      - mall-backend
+
+volumes:
+  mysql-data:
+  redis-data:
